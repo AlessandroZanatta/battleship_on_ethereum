@@ -105,7 +105,6 @@ contract("Test BattleshipGame contract", (accounts) => {
 
       const gameBalance = await web3.eth.getBalance(game.address);
       assert.equal(gameBalance, amount * 2);
-
       truffleAssert.eventEmitted(tx, "FundsDeposited");
     });
   });
