@@ -10,7 +10,7 @@ contract("Test battleship contract - Create", (accounts) => {
   describe("Create a new game and get its identifier", () => {
     it("Create a game", async () => {
       const playerOne = accounts[0];
-      const tx = await battleship.createGame(utils.BoardSize.Small, {
+      const tx = await battleship.createGame({
         from: playerOne,
       });
       truffleAssert.eventEmitted(tx, "NewGame", (ev) => {
@@ -26,7 +26,7 @@ contract("Test battleship contract - Join", (accounts) => {
     const playerTwo = accounts[1];
     var game;
     it("Create a game", async () => {
-      const tx = await battleship.createGame(utils.BoardSize.Small, {
+      const tx = await battleship.createGame({
         from: playerOne,
       });
       truffleAssert.eventEmitted(tx, "NewGame", (ev) => {
@@ -37,7 +37,7 @@ contract("Test battleship contract - Join", (accounts) => {
 
     it("Join the game", async () => {
       const tx = await battleship.joinGameByID(game, { from: playerTwo });
-      truffleAssert.eventEmitted(tx, "GameCanStart", (ev) => {
+      truffleAssert.eventEmitted(tx, "JoinGame", (ev) => {
         return ev.game == game;
       });
     });
@@ -63,24 +63,19 @@ contract("Test battleship contract - Random join", (accounts) => {
     const playerTwo = accounts[1];
     var game;
     it("Create some games", async () => {
-      await battleship.createGame(utils.BoardSize.Small, { from: playerOne });
-      await battleship.createGame(utils.BoardSize.Small, { from: playerOne });
-      await battleship.createGame(utils.BoardSize.Small, { from: playerOne });
+      await battleship.createGame({ from: playerOne });
+      await battleship.createGame({ from: playerOne });
+      await battleship.createGame({ from: playerOne });
     });
 
     it("playerOne cannot join", async () => {
-      try {
-        await battleship.joinRandomGame({ from: playerOne });
-        assert.fail("The transaction should have thrown an error");
-      } catch (err) {
-        assert.include(err.message, "revert", "Cannot join your own games");
-      }
+      const tx = await battleship.joinRandomGame({ from: playerOne });
+      truffleAssert.eventEmitted(tx, "NoGame");
     });
 
     it("playerTwo joins a random game", async () => {
       const tx = await battleship.joinRandomGame({ from: playerTwo });
       truffleAssert.eventEmitted(tx, "JoinGame");
-      truffleAssert.eventEmitted(tx, "GameCanStart");
     });
   });
 });

@@ -4,6 +4,12 @@ pragma solidity >=0.4.22 <0.9.0;
 import "./BattleshipGame.sol";
 
 contract Battleship {
+    //
+    //
+    // variables
+    //
+    //
+
     // Maps BattleshipGames that are currently in the WaitingForPlayer phase.
     // Needed to keep track of valid indexes in joinableGamesIndexes
     mapping(BattleshipGame => bool) private joinableGamesMap;
@@ -20,21 +26,33 @@ contract Battleship {
     // Nonce for pseudo-random number generation
     uint256 private nonce;
 
+    //
+    //
+    // events
+    //
+    //
+
     // Emitted when a new game is created
     event NewGame(address indexed creator, BattleshipGame game);
 
-    // Emitted when joining a random game
-    event JoinGame(address indexed player, BattleshipGame game);
+    // Emitted when second player joins
+    event JoinGame(address indexed player, BattleshipGame indexed game);
 
-    // Emitted when two players have joined game
-    event GameCanStart(BattleshipGame game);
+    // Emitted when player tries to join a random game, but not game is available
+    event NoGame(address indexed player);
 
-    function createGame(BattleshipGame.BoardSize _bsize) external {
+    //
+    //
+    // public functions
+    //
+    //
+
+    function createGame() external {
         // Create a new game by deploying a new BattleshipGame contract
-        BattleshipGame newGame = new BattleshipGame(msg.sender, _bsize);
+        BattleshipGame newGame = new BattleshipGame(msg.sender);
 
         // Add the game to our state
-        addGame(newGame);
+        _addGame(newGame);
 
         // Emit event to inform client of newGame address
         emit NewGame(msg.sender, newGame);
@@ -55,9 +73,9 @@ contract Battleship {
         _game.registerPlayerTwo(msg.sender);
 
         // Delete the game
-        removeGame(_game);
+        _removeGame(_game);
 
-        emit GameCanStart(_game);
+        emit JoinGame(msg.sender, _game);
     }
 
     function joinRandomGame() external {
@@ -91,20 +109,25 @@ contract Battleship {
                 game.registerPlayerTwo(msg.sender);
 
                 // Remove game from our state
-                removeGame(game);
+                _removeGame(game);
 
                 // Inform client of game address
                 emit JoinGame(msg.sender, game);
-                emit GameCanStart(game);
                 break;
             }
         }
 
         // There is no playable game for msg.sender (i.e. msg.sender has created all joinable games)
-        if (!found) revert();
+        if (!found) emit NoGame(msg.sender);
     }
 
-    function removeGame(BattleshipGame _game) internal {
+    //
+    //
+    // helpers
+    //
+    //
+
+    function _removeGame(BattleshipGame _game) internal {
         // Must be called with a BattleshipGame that is currently saved in our state
         assert(joinableGamesMap[_game] == true);
         assert(joinableGames.length > 0);
@@ -125,7 +148,7 @@ contract Battleship {
         delete joinableGamesIndexes[_game];
     }
 
-    function addGame(BattleshipGame _game) internal {
+    function _addGame(BattleshipGame _game) internal {
         // Add the game to the list of games that can be joined
         joinableGamesMap[_game] = true;
         joinableGames.push(_game);

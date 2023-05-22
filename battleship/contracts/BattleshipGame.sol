@@ -11,46 +11,40 @@ contract BattleshipGame {
         WaitingFunds,
         Placement,
         Attack,
-        CheckShot,
         Winner,
-        WinnerVerified
+        WinnerVerified,
+        End
     }
 
-    // Ammissible board sizes
-    enum BoardSize {
-        Small,
-        Medium,
-        Large
-    }
+    // Total number of cells per board
+    uint8 public constant CELLS_BOARD = 8 * 8;
 
-    uint8 public constant CELLS_BOARD_SIZE_SMALL = 2 * 2;
-    uint8 public constant CELLS_BOARD_SIZE_MEDIUM = 4 * 4;
-    uint8 public constant CELLS_BOARD_SIZE_LARGE = 8 * 8;
-
-    // Two small 1x1 ships
-    uint8 public constant SHIP_CELLS_BOARD_SIZE_SMALL = 2;
-
-    // Two 1x2 ships, two 1x1 ships
-    uint8 public constant SHIP_CELLS_BOARD_SIZE_MEDIUM = 6;
-
-    // One 1x5 ship, one 1x4 ship, two 1x3 ships, two 1x2 ships, two 1x1 ships
-    uint8 public constant SHIP_CELLS_BOARD_SIZE_LARGE = 21;
+    // No hard requirements on the fleet composition: a player may decide to have it all 1x1 ships
+    // This is a simplifying assumption, as checking for the correctness of a precise fleet composition
+    // is very inefficient computationally-wise (fastly growing tree).
+    // A possible solution may be to represent ships as triples (position, direction, size),
+    // but this would complicate merkle proofs greatly.
+    uint8 public constant SHIP_CELLS_BOARD = 10;
 
     // Possible outcomes for a shot: not shot, shot taken (awaiting confirmation),
     // hit or miss. None is also the Solidity default value zero (no need for initialization).
-    enum Shot {
+    enum ShotType {
         None,
         Taken,
         Hit,
         Miss
     }
 
-    // value == 1 -> cell with a ship
-    // value == 0 -> empty cell
-    struct Cell {
-        bool isShip;
-        uint256 salt;
+    struct Shot {
+        uint8 index;
+        ShotType typ;
     }
+
+    //
+    //
+    // storage variables
+    //
+    //
 
     // Contract that created this contract
     address public owner;
@@ -63,8 +57,10 @@ contract BattleshipGame {
     // Current phase of the game
     Phase public currentPhase;
 
-    // Board size
-    BoardSize public boardSize;
+    // Address of the player reported as AFK
+    address public AFKPlayer;
+    // Block number after which the AFKPlayer is considered AFK, and its opponent the winner
+    uint public timeout;
 
     // Following amounts are all in wei
     // Contains the association between a player and its proposed bet.
@@ -79,13 +75,26 @@ contract BattleshipGame {
     mapping(address => bytes32) playerBoardMerkleRoot;
 
     // Whose player turn is the current one
-    address playerTurn;
+    address public playerTurn;
 
     // Maps the shots that each player has taken
-    mapping(address => mapping(uint8 => Shot)) shotsTaken;
+    mapping(address => mapping(uint8 => bool)) public shotsTakenMap;
+    mapping(address => Shot[]) public shotsTaken;
 
     // Maps a player address to the number of ships its opponent has hit
-    mapping(address => uint8) hits;
+    mapping(address => uint8) public hits;
+
+    // Winner of the game. Allows the winner to withdraw its price
+    address public winner;
+
+    //
+    //
+    // events
+    //
+    //
+
+    // Emitted when a player reports the opponent as AFK
+    event AFKWarning(address indexed player);
 
     // Emitted when a player proposed an amount for the bet
     event BetProposal(address indexed player, uint256 amount);
@@ -101,99 +110,106 @@ contract BattleshipGame {
     event BoardsCommitted();
 
     // Informs the opponent that cell `cell` has been shot
+    // In most cases, this also means that the opponent
+    // checked the previous shot result
     event ShotTaken(address indexed player, uint8 cell);
 
     // Winner of the game
     // The winner still needs to send his board to the contract for verification
     event Winner(address player);
 
+    // Winner has been correctly verified to be player
+    event WinnerVerified(address player);
+
+    //
+    //
+    // modifiers
+    //
+    //
+
     modifier onlyOwner() {
-        require(msg.sender == owner, "You are not the owner");
+        require(msg.sender == owner);
         _;
     }
 
     modifier onlyPlayer() {
-        require(
-            msg.sender == playerOne || msg.sender == playerTwo,
-            "You are not a player"
-        );
+        require(msg.sender == playerOne || msg.sender == playerTwo);
+        _;
+    }
+
+    modifier onlyWinner() {
+        require(msg.sender == winner);
         _;
     }
 
     // Modifiers to check we are in a specific phase
     modifier phaseWaitingForPlayer() {
-        require(
-            currentPhase == Phase.WaitingForPlayer,
-            "Invalid function for current phase"
-        );
+        require(currentPhase == Phase.WaitingForPlayer);
         _;
     }
 
     modifier phaseBetAgreement() {
-        require(
-            currentPhase == Phase.BetAgreement,
-            "Invalid function for current phase"
-        );
+        require(currentPhase == Phase.BetAgreement);
         _;
     }
 
     modifier phaseWaitingFunds() {
-        require(
-            currentPhase == Phase.WaitingFunds,
-            "Invalid function for current phase"
-        );
+        require(currentPhase == Phase.WaitingFunds);
         _;
     }
 
     modifier phasePlacement() {
-        require(
-            currentPhase == Phase.Placement,
-            "Invalid function for current phase"
-        );
+        require(currentPhase == Phase.Placement);
         _;
     }
 
     modifier phaseAttack() {
-        require(
-            currentPhase == Phase.Attack,
-            "Invalid function for current phase"
-        );
-        _;
-    }
-
-    modifier phaseCheckShot() {
-        require(
-            currentPhase == Phase.CheckShot,
-            "Invalid function for current phase"
-        );
+        require(currentPhase == Phase.Attack);
         _;
     }
 
     modifier phaseWinner() {
-        require(
-            currentPhase == Phase.Winner,
-            "Invalid function for current phase"
-        );
+        require(currentPhase == Phase.Winner);
         _;
     }
 
     modifier phaseWinnerVerified() {
-        require(
-            currentPhase == Phase.WinnerVerified,
-            "Invalid function for current phase"
-        );
+        require(currentPhase == Phase.WinnerVerified);
         _;
     }
 
     modifier isPlayerTurn() {
-        require(msg.sender == playerTurn, "It is not your turn");
+        require(msg.sender == playerTurn);
         _;
     }
 
-    constructor(address _creator, BoardSize _boardSize) {
+    modifier checkAFK() {
+        if (AFKPlayer != address(0)) {
+            // AFK player has done an action before the timer run out, safe
+            if (block.number < timeout && msg.sender == AFKPlayer) {
+                delete AFKPlayer;
+            } else if (block.number >= timeout) {
+                // No action from the AFK player was taken before the timeout
+                // The opponent wins by default
+                address opponent = AFKPlayer == playerOne
+                    ? playerTwo
+                    : playerOne;
+                emit WinnerVerified(opponent);
+                winner = opponent;
+            }
+        }
+        _;
+    }
+
+    //
+    //
+    // public functions
+    //
+    //
+
+    constructor(address _creator) {
         owner = msg.sender;
         playerOne = _creator;
-        boardSize = _boardSize;
         currentPhase = Phase.WaitingForPlayer;
     }
 
@@ -231,7 +247,58 @@ contract BattleshipGame {
         currentPhase = Phase.WaitingFunds;
     }
 
-    function betFunds() external payable onlyPlayer phaseWaitingFunds {
+    function reportOpponentAFK() external onlyPlayer {
+        // Issue: we want to prevent AFKing. However, this feature may be exploited to win games.
+        // For instance, it may happen that a player is accused of being AFK, but is unable
+        // to take any action, basically defaulting to a loss.
+        // We also don't want to give the player the ability to declare it is not AFK, as this may
+        // also be abused to lock the funds of the opponent until the opponent goes AFK.
+
+        // The solution implemented is the following: check that the reported player can do an action.
+        // If not, disallow reporting it for AFK. This approach, as error prone as it may be, is likely
+        // the best one if implemented correctly.
+        address opponent = msg.sender == playerOne ? playerTwo : playerOne;
+        require(
+            // First, verify that no player has been accused of being AFK currently
+            AFKPlayer == address(0) &&
+                // Disallow reporting on some phases
+                (currentPhase != Phase.WaitingForPlayer &&
+                    currentPhase != Phase.WinnerVerified &&
+                    currentPhase != Phase.End) &&
+                // If reported in the betting phase, check that player reporting has already bet and opponent hasn't
+                ((currentPhase == Phase.WaitingFunds &&
+                    playerPaid[msg.sender] &&
+                    !playerPaid[opponent]) ||
+                    // If reported during placement, check that opponent hasn't committed its board yet
+                    (currentPhase == Phase.Placement &&
+                        playerBoardMerkleRoot[opponent] == 0) ||
+                    // If reported during attack phase, check that it is the opponent's turn
+                    (currentPhase == Phase.Attack && playerTurn == opponent) ||
+                    // Also allow reporting during board checking phase
+                    (currentPhase == Phase.Winner && msg.sender != winner)),
+            "Cannot report AFK player now"
+        );
+
+        emit AFKWarning(opponent);
+        AFKPlayer = opponent;
+        timeout = block.number + 5;
+    }
+
+    // It is also possible that the AFK player is the only player that can take action
+    // In this case, it would be impossible to claim the funds, thus the need of this function
+    function verifyOpponentAFK() external onlyPlayer {
+        require(AFKPlayer != address(0));
+
+        if (block.number >= timeout) {
+            // No action from the AFK player was taken before the timeout
+            // The opponent wins by default
+            address opponent = AFKPlayer == playerOne ? playerTwo : playerOne;
+            emit WinnerVerified(opponent);
+            winner = opponent;
+        }
+    }
+
+    function betFunds() external payable onlyPlayer phaseWaitingFunds checkAFK {
         require(
             !playerPaid[msg.sender] && msg.value == agreedBetAmount,
             "Should pay exactly the agreed amount"
@@ -249,7 +316,7 @@ contract BattleshipGame {
 
     function commitBoard(
         bytes32 merkleTreeRoot
-    ) external onlyPlayer phasePlacement {
+    ) external onlyPlayer phasePlacement checkAFK {
         require(
             playerBoardMerkleRoot[msg.sender] == 0,
             "You have alread committed your board!"
@@ -272,81 +339,174 @@ contract BattleshipGame {
         }
     }
 
-    function attack(uint8 _cell) external phaseAttack isPlayerTurn {
+    function getShotsTaken(
+        address player
+    ) external view returns (Shot[] memory) {
+        return shotsTaken[player];
+    }
+
+    // isPlayerTurn allows a subset of addresses wrt to isPlayer, therefore we
+    // don't need both here
+    function attack(uint8 _index) external phaseAttack isPlayerTurn checkAFK {
+        _attack(_index);
+    }
+
+    // Only the first attack is *only* an attack
+    // We can save a transaction by doing both checking and attacking at
+    // the same time
+    function checkAndAttack(
+        bool _isShip,
+        uint256 _salt,
+        uint8 _index,
+        bytes32[] memory _proof,
+        uint8 _attackIndex
+    ) external phaseAttack isPlayerTurn checkAFK {
+        address opponent = msg.sender == playerOne ? playerTwo : playerOne;
+        uint last = shotsTaken[opponent].length - 1;
+        assert(shotsTaken[opponent][last].typ == ShotType.Taken);
+        require(shotsTaken[opponent][last].index == _index);
+
+        if (
+            !_checkProof(
+                _isShip,
+                _salt,
+                _index,
+                _proof,
+                playerBoardMerkleRoot[msg.sender]
+            )
+        ) {
+            // Player has attempted cheating, thus opponent wins by default
+            // without even checking its board
+            emit WinnerVerified(opponent);
+            currentPhase = Phase.WinnerVerified;
+            winner = opponent;
+            return;
+        }
+
+        if (_isShip) {
+            shotsTaken[opponent][last].typ = ShotType.Hit;
+            hits[msg.sender]++;
+
+            // If the opponent has hit all of our ships,
+            // the opponent wins
+            if (hits[msg.sender] == SHIP_CELLS_BOARD) {
+                emit Winner(opponent);
+                winner = opponent;
+                currentPhase = Phase.Winner;
+                return;
+            }
+        } else {
+            shotsTaken[opponent][last].typ = ShotType.Miss;
+        }
+
+        _attack(_attackIndex);
+    }
+
+    function checkWinnerBoard(
+        bool[] memory _board,
+        uint256[] memory _salts,
+        uint8[] memory _indexes,
+        bytes32[][] memory _proofs
+    ) external phaseWinner onlyWinner checkAFK {
+        // Sanity checks on received arrays
+        require(_board.length == _salts.length);
+        require(_board.length == _proofs.length);
+
+        address opponent = msg.sender == playerOne ? playerTwo : playerOne;
+
+        // The winner is required to send the proofs for the cells that he hasn't given a proof yet
+        // First, we verify that the whole board is verified to belong to the Merkle tree
+        // We also check that no indexes are re-used. To do so, we re-use shotsTakenMap.
+        uint8 ships = 0;
+        for (uint i = 0; i < _board.length; i++) {
+            if (
+                !_checkProof(
+                    _board[i],
+                    _salts[i],
+                    _indexes[i],
+                    _proofs[i],
+                    playerBoardMerkleRoot[msg.sender]
+                ) || shotsTakenMap[opponent][_indexes[i]]
+            ) {
+                // Player submitted a fake proof or an index that was already checked
+                // This could happen as a client implementation error, but in most cases
+                // this is due to a cheating attempt
+                emit WinnerVerified(opponent);
+                winner = opponent;
+                return;
+            }
+
+            shotsTakenMap[opponent][_indexes[i]] = true;
+            if (_board[i]) {
+                ships++;
+            }
+        }
+
+        // Verify that every cell has been checked
+        for (uint8 i = 0; i < CELLS_BOARD; i++) {
+            if (!shotsTakenMap[opponent][i]) {
+                // Player attempted cheating by not submitting all missing cells
+                emit WinnerVerified(opponent);
+                winner = opponent;
+                return;
+            }
+        }
+
+        // Check that the required number of ships was placed
+        if (ships + hits[msg.sender] == SHIP_CELLS_BOARD) {
+            emit WinnerVerified(msg.sender);
+        } else {
+            // placement is invalid, player cheated!
+            emit WinnerVerified(opponent);
+            winner = opponent;
+        }
+        currentPhase = Phase.WinnerVerified;
+    }
+
+    function withdraw() external phaseWinnerVerified onlyWinner {
+        payable(msg.sender).transfer(address(this).balance);
+        currentPhase = Phase.End;
+    }
+
+    //
+    //
+    // helpers
+    //
+    //
+
+    function _attack(uint8 _index) internal {
         // Check the selected cell is valid for the current board
         //  - not already shot
         //  - in a valid range (i.e. inside the boards boundaries, which depend
         //    on the boardSize)
         require(
-            shotsTaken[msg.sender][_cell] == Shot.None,
+            shotsTakenMap[msg.sender][_index] == false,
             "You have already shot that cell"
         );
-        require(
-            ((boardSize == BoardSize.Small && _cell < 4) ||
-                (boardSize == BoardSize.Medium && _cell < 16) ||
-                (boardSize == BoardSize.Large && _cell < 64)),
-            "Cell is invalid"
-        );
+        require((_index < CELLS_BOARD), "Cell is invalid");
 
         // Set the shot as taken
-        shotsTaken[msg.sender][_cell] = Shot.Taken;
+        shotsTakenMap[msg.sender][_index] = true;
+        shotsTaken[msg.sender].push(Shot(_index, ShotType.Taken));
 
-        // Change phase: opponent must now prove if the shot was a hit or a miss
-        currentPhase = Phase.CheckShot;
-        emit ShotTaken(msg.sender, _cell);
+        // Notify opponent of the shot
+        emit ShotTaken(msg.sender, _index);
 
         // Other player turn now
-        // Player is required to check the result of the shot before playing its move
         playerTurn = playerTurn == playerOne ? playerTwo : playerOne;
     }
 
-    function shotResult(
-        Cell calldata _cell,
+    function _checkProof(
+        bool _isShip,
+        uint256 _salt,
         uint8 _index,
-        bytes32[] memory _proof
-    ) external phaseCheckShot isPlayerTurn {
-        address opponent = playerTurn == playerOne ? playerTwo : playerOne;
-        require(shotsTaken[opponent][_index] == Shot.Taken, "Invalid index");
-
-        if (!checkProof(_cell, _proof, playerBoardMerkleRoot[msg.sender])) {
-            // Player has attempted cheating, thus opponent wins by default
-            // without even checking its board
-            emit Winner(opponent);
-            currentPhase = Phase.WinnerVerified;
-        } else {
-            if (_cell.isShip) {
-                shotsTaken[opponent][_index] = Shot.Hit;
-                hits[msg.sender]++;
-
-                if (checkWinner()) {
-                    emit Winner(opponent);
-                    currentPhase = Phase.Winner;
-                }
-            } else {
-                shotsTaken[opponent][_index] = Shot.Miss;
-            }
-            currentPhase = Phase.Attack;
-        }
-    }
-
-    function checkProof(
-        Cell calldata _cell,
         bytes32[] memory _proof,
         bytes32 _root
-    ) internal returns (bool) {
+    ) internal pure returns (bool) {
         bytes32 leaf = keccak256(
-            bytes.concat(keccak256(abi.encode(_cell.isShip, _cell.salt)))
+            bytes.concat(keccak256(abi.encode(_isShip, _salt, _index)))
         );
-        return MerkleProof.verify(_proof, _root, leaf);
-    }
 
-    function checkWinner() internal returns (bool) {
-        return
-            (boardSize == BoardSize.Small &&
-                hits[msg.sender] == SHIP_CELLS_BOARD_SIZE_SMALL) ||
-            (boardSize == BoardSize.Medium &&
-                hits[msg.sender] == SHIP_CELLS_BOARD_SIZE_MEDIUM) ||
-            (boardSize == BoardSize.Large &&
-                hits[msg.sender] == SHIP_CELLS_BOARD_SIZE_LARGE);
+        return MerkleProof.verify(_proof, _root, leaf);
     }
 }
