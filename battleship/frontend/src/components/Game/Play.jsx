@@ -135,7 +135,9 @@ export const Play = () => {
                   )}
                   <input type="hidden" name="pos" value={pos} />
                   <input type="hidden" name="address" value={game._address} />
-                  <button type="submit">shoot</button>
+                  <button type="submit" className="btn btn-sm">
+                    shoot
+                  </button>
                 </Form>
               )}
             </div>
@@ -174,9 +176,34 @@ export const Play = () => {
   return (
     <>
       <div className="alert mb-10" role="alert">
+        <h4 className="alert-heading">Legend</h4>
+        <div className="text-center">
+          <table className="m-auto">
+            <tbody>
+              <tr>
+                <td className="small selected"></td>
+                <td className="td-text">Ship</td>
+                <td className="hidden"></td>
+
+                <td className="small hit"></td>
+                <td className="td-text">Hit</td>
+                <td className="hidden"></td>
+
+                <td className="small miss"></td>
+                <td className="td-text">Missed</td>
+                <td className="hidden"></td>
+
+                <td className="small taken"></td>
+                <td className="td-text">Not confirmed</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className="alert mb-10" role="alert">
         <h4 className="alert-heading">Opponent:</h4>
         <div className="text-center">
-          <table className="mb-10 m-auto">
+          <table className="m-auto">
             <tbody>{opponentBoard}</tbody>
           </table>
         </div>
@@ -184,7 +211,7 @@ export const Play = () => {
       <div className="alert mb-10" role="alert">
         <h4 className="alert-heading">Your board:</h4>
         <div className="text-center">
-          <table className="mb-10 m-auto">
+          <table className="m-auto">
             <tbody>{myBoard}</tbody>
           </table>
         </div>

@@ -1,0 +1,51 @@
+\documentclass[a4paper]{article}
+
+%% Packages 
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{graphicx}               % Images
+\usepackage{titletoc}               % Table of contents
+\usepackage{authblk}                % Authors affiliations
+\usepackage{cleveref}               % Better references
+\usepackage{subcaption}             % Subfigures
+\usepackage{enumitem}               % Enumerates and itemizes control
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+\usepackage{minted}
+
+%% No spaces between items in a list
+% \setlist{noitemsep}
+
+%% Table of contents formatting
+\dottedcontents{section}[25pt]{\addvspace{3pt}}{2.3em}{9.5pt}
+\dottedcontents{subsection}[50pt]{\addvspace{3pt}}{3.2em}{9.5pt}
+\setcounter{tocdepth}{3} % ToC max depth
+
+%% Add ./images to images path
+\graphicspath{{./images/}, {./logos/}}
+
+\newcommand{\email}[1]{\href{mailto:#1}{\footnotesize\texttt{#1}}} % Email
+
+%% Title, author, university, course and year
+\def\thetitle{Hit and Sunk!\\Playing Battleship on Ethereum}
+\author[a]{Alessandro Zanatta}
+\renewcommand\Affilfont{\small}
+\def\uni{University\\of Pisa} % University name
+\def\course{Peer to Peer and Blockchain} % Course name
+\def\ay{2022/23} % Academic year
+
+%% Start of document
+\begin{document}
+
+\pagenumbering{gobble}
+\input{titlesec}
+\tableofcontents
+\clearpage
+
+%% Add sections here by including them from the sections directory
+\pagenumbering{arabic}
+\input{./sections/00_implementation_choices}\clearpage
+\input{./sections/02_vulnerabilities}\clearpage
+
+\end{document}
+

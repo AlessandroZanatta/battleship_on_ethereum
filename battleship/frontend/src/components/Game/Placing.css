@@ -1,5 +1,4 @@
 td {
-  position: relative;
   width: 70px;
   height: 70px;
   border: 1px solid #d1d2d2;
@@ -35,4 +34,18 @@ td:hover {
   width: 80%;
   height: 80%;
   background-color: #ffe04d;
+}
+
+td.small {
+  width: 70px;
+  height: 50px;
+}
+
+td.td-text {
+  width: 150px;
+  height: 50px;
+}
+
+td.hidden {
+  border: 0px;
 }

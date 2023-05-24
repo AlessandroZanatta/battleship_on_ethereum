@@ -26,26 +26,21 @@ export const action = async ({ request }) => {
     const shotsTaken = await contract.methods.getShotsTaken(opponent).call();
 
     // For each index in board, get value and proof if not already in shots verified
-    const values = [];
-    const proofs = [];
-    for (const [i, v] of tree.entries()) {
-      if (!shotsTaken.find((e) => parseInt(e.index) === i)) {
-        values.push(v);
-        proofs.push(tree.getProof(i));
-      }
-    }
-
+    const all = [...Array.from({ length: 8 * 8 }, (_, index) => index)];
+    const { proof, proofFlags, leaves } = tree.getMultiProof(
+      all.filter((i) => !shotsTaken.find((e) => parseInt(e.index) === i))
+    );
     const board = [];
     const salts = [];
     const indexes = [];
-    values.forEach((e) => {
+    leaves.forEach((e) => {
       board.push(e[0]);
       salts.push(e[1]);
       indexes.push(e[2]);
     });
 
     await contract.methods
-      .checkWinnerBoard(board, salts, indexes, proofs)
+      .checkWinnerBoard(proof, proofFlags, board, salts, indexes)
       .send({
         from: accounts[0],
       });

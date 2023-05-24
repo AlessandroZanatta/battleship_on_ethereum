@@ -4,6 +4,7 @@ import {
   Outlet,
   redirect,
   useLoaderData,
+  useLocation,
   useNavigate,
 } from "react-router-dom";
 
@@ -13,6 +14,8 @@ import {
   createToast,
   getWeb3Instance,
   phaseToString,
+  Phase,
+  isReportable,
 } from "../utils";
 
 export const loader = async ({ params }) => {
@@ -44,6 +47,7 @@ export const action = async ({ request }) => {
   const address = form.get("address");
   const contract = battleshipGameContractFromAddress(address);
   const accounts = await getWeb3Instance().eth.getAccounts();
+  const loc = form.get("location");
   try {
     switch (intent) {
       case "report":
@@ -58,7 +62,7 @@ export const action = async ({ request }) => {
   } catch (err) {
     createToast("Error", err.message, "alert-danger");
   }
-  return null;
+  return redirect(loc);
 };
 
 export const Game = () => {
@@ -78,6 +82,7 @@ export const Game = () => {
     state: { accounts },
   } = useEth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     (async () => {
@@ -130,18 +135,24 @@ export const Game = () => {
         <div>{"Winner: " + winner}</div>
       )}
 
-      <Form method="post" className="mb-5">
-        <input type="hidden" name="intent" value="report" />
-        <input type="hidden" name="address" value={game._address} />
-        <button type="submit" className="btn btn-danger">
-          Report opponent as AFK
-        </button>
-      </Form>
+      {AFKPlayer === "0x0000000000000000000000000000000000000000" &&
+        isReportable(currentPhase) && (
+          <Form method="post" className="mb-5">
+            <input type="hidden" name="intent" value="report" />
+            <input type="hidden" name="address" value={game._address} />
+            <input type="hidden" name="location" value={location.pathname} />
+            <button type="submit" className="btn btn-danger">
+              Report opponent as AFK
+            </button>
+          </Form>
+        )}
       {AFKPlayer !== "0x0000000000000000000000000000000000000000" &&
+        isReportable(currentPhase) &&
         AFKPlayer !== accounts[0] && (
           <Form method="post">
             <input type="hidden" name="intent" value="validate" />
             <input type="hidden" name="address" value={game._address} />
+            <input type="hidden" name="location" value={location.pathname} />
             <button type="submit" className="btn btn-success">
               Validate AFK report
             </button>

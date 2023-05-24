@@ -34,10 +34,19 @@ export const phaseToString = (phase) => {
     case Phase.WinnerVerified:
       return "Winner verified";
     case Phase.End:
-      return "Winner verified";
+      return "Game ended";
     default:
       throw new Error("Invalid phase");
   }
+};
+
+export const isReportable = (phase) => {
+  return (
+    phase != Phase.WaitingForPlayer &&
+    phase != Phase.BetAgreement &&
+    phase != Phase.WinnerVerified &&
+    phase != Phase.End
+  );
 };
 
 export const ShotType = {

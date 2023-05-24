@@ -142,6 +142,29 @@ contract BattleshipGame {
         _;
     }
 
+    modifier isPlayerTurn() {
+        require(msg.sender == playerTurn);
+        _;
+    }
+
+    modifier checkAFK() {
+        if (AFKPlayer != address(0)) {
+            // AFK player has done an action before the timer run out, safe
+            if (block.number < timeout && msg.sender == AFKPlayer) {
+                delete AFKPlayer;
+            } else if (block.number >= timeout) {
+                // No action from the AFK player was taken before the timeout
+                // The opponent wins by default
+                address opponent = AFKPlayer == playerOne
+                    ? playerTwo
+                    : playerOne;
+                emit WinnerVerified(opponent);
+                winner = opponent;
+            }
+        }
+        _;
+    }
+
     // Modifiers to check we are in a specific phase
     modifier phaseWaitingForPlayer() {
         require(currentPhase == Phase.WaitingForPlayer);
@@ -175,29 +198,6 @@ contract BattleshipGame {
 
     modifier phaseWinnerVerified() {
         require(currentPhase == Phase.WinnerVerified);
-        _;
-    }
-
-    modifier isPlayerTurn() {
-        require(msg.sender == playerTurn);
-        _;
-    }
-
-    modifier checkAFK() {
-        if (AFKPlayer != address(0)) {
-            // AFK player has done an action before the timer run out, safe
-            if (block.number < timeout && msg.sender == AFKPlayer) {
-                delete AFKPlayer;
-            } else if (block.number >= timeout) {
-                // No action from the AFK player was taken before the timeout
-                // The opponent wins by default
-                address opponent = AFKPlayer == playerOne
-                    ? playerTwo
-                    : playerOne;
-                emit WinnerVerified(opponent);
-                winner = opponent;
-            }
-        }
         _;
     }
 
@@ -401,64 +401,65 @@ contract BattleshipGame {
     }
 
     function checkWinnerBoard(
-        bool[] memory _board,
+        bytes32[] memory _proof,
+        bool[] memory _proofFlags,
+        bool[] memory _cells,
         uint256[] memory _salts,
-        uint8[] memory _indexes,
-        bytes32[][] memory _proofs
+        uint8[] memory _indexes
     ) external phaseWinner onlyWinner checkAFK {
-        // Sanity checks on received arrays
-        require(_board.length == _salts.length);
-        require(_board.length == _proofs.length);
-
+        require(_cells.length == _salts.length);
+        require(_cells.length == _indexes.length);
         address opponent = msg.sender == playerOne ? playerTwo : playerOne;
-
-        // The winner is required to send the proofs for the cells that he hasn't given a proof yet
-        // First, we verify that the whole board is verified to belong to the Merkle tree
-        // We also check that no indexes are re-used. To do so, we re-use shotsTakenMap.
         uint8 ships = 0;
-        for (uint i = 0; i < _board.length; i++) {
+
+        if (_cells.length > 0) {
+            // The winner is required to send the proofs for the cells that he hasn't given a proof yet
+            // First, we verify that the whole board is verified to belong to the Merkle tree
+            // Using a multiproof allows to save about 300k gas
             if (
-                !_checkProof(
-                    _board[i],
-                    _salts[i],
-                    _indexes[i],
-                    _proofs[i],
+                !_checkMultiProof(
+                    _proof,
+                    _proofFlags,
+                    _cells,
+                    _salts,
+                    _indexes,
                     playerBoardMerkleRoot[msg.sender]
-                ) || shotsTakenMap[opponent][_indexes[i]]
+                )
             ) {
-                // Player submitted a fake proof or an index that was already checked
-                // If the client implementation is correct, this means that the player
-                // attempted cheating
-                emit WinnerVerified(opponent);
-                winner = opponent;
+                _declareWinner(opponent);
                 return;
             }
 
-            shotsTakenMap[opponent][_indexes[i]] = true;
-            if (_board[i]) {
-                ships++;
+            // We also check that no indexes are re-used. To do so, we re-use shotsTakenMap.
+            for (uint i = 0; i < _cells.length; i++) {
+                // Check that the index is valid
+                if (_indexes[i] >= CELLS_BOARD) {
+                    _declareWinner(opponent);
+                    return;
+                }
+
+                shotsTakenMap[opponent][_indexes[i]] = true;
+                if (_cells[i]) {
+                    ships++;
+                }
             }
         }
 
         // Verify that every cell has been checked
         for (uint8 i = 0; i < CELLS_BOARD; i++) {
             if (!shotsTakenMap[opponent][i]) {
-                // Player attempted cheating by not submitting all missing cells
-                emit WinnerVerified(opponent);
-                winner = opponent;
+                _declareWinner(opponent);
                 return;
             }
         }
 
         // Check that the required number of ships was placed
         if (ships + hits[msg.sender] == SHIP_CELLS_BOARD) {
-            emit WinnerVerified(msg.sender);
+            _declareWinner(msg.sender);
         } else {
             // placement is invalid, player cheated!
-            emit WinnerVerified(opponent);
-            winner = opponent;
+            _declareWinner(opponent);
         }
-        currentPhase = Phase.WinnerVerified;
     }
 
     function withdraw() external phaseWinnerVerified onlyWinner {
@@ -502,10 +503,42 @@ contract BattleshipGame {
         bytes32[] memory _proof,
         bytes32 _root
     ) internal pure returns (bool) {
-        bytes32 leaf = keccak256(
-            bytes.concat(keccak256(abi.encode(_isShip, _salt, _index)))
-        );
+        bytes32 leaf = _encodeLeaf(_isShip, _salt, _index);
 
         return MerkleProof.verify(_proof, _root, leaf);
+    }
+
+    function _checkMultiProof(
+        bytes32[] memory _proof,
+        bool[] memory _proofFlags,
+        bool[] memory _cells,
+        uint256[] memory _salts,
+        uint8[] memory _indexes,
+        bytes32 _root
+    ) internal pure returns (bool) {
+        // First, must encode leaves correctly
+        bytes32[] memory leaves = new bytes32[](_cells.length);
+        for (uint i = 0; i < _cells.length; i++) {
+            leaves[i] = _encodeLeaf(_cells[i], _salts[i], _indexes[i]);
+        }
+
+        return MerkleProof.multiProofVerify(_proof, _proofFlags, _root, leaves);
+    }
+
+    function _encodeLeaf(
+        bool _isShip,
+        uint256 _salt,
+        uint8 _index
+    ) internal pure returns (bytes32) {
+        return
+            keccak256(
+                bytes.concat(keccak256(abi.encode(_isShip, _salt, _index)))
+            );
+    }
+
+    function _declareWinner(address player) internal {
+        emit WinnerVerified(player);
+        winner = player;
+        currentPhase = Phase.WinnerVerified;
     }
 }

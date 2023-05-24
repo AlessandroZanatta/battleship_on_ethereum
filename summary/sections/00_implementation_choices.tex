@@ -1,0 +1,94 @@
+\section{Implementation choices}
+
+\subsection{Contracts}
+The first decision was to split the required functionality in two contracts:
+the first contract only handles creation and join of games (i.e. deployment and
+setup of a game contract), whereas the second contract is used to actually play
+the game. This decision was taken for two main reasons:
+\begin{itemize}
+	\item Code readability and auditability: while it would be possible to implement
+	      everything in a single contract, code readability and auditability would suffer
+	      from such a choice. Splitting the functionality in multiple contracts allows
+	      reasoning about them separately.
+	\item Security: as the contract would have to deal with multiple games at once, it
+	      would be more likely to introduce hard-to-spot vulnerabilities. For example, it
+	      would be possible for the contract to erroneously act on the wrong game. By
+	      having each game be played on a different contract, this scenario is avoided.
+\end{itemize}
+Of course, this also implies a higher cost of a complete game as deploying a
+contract is costly in terms of the required Gas.
+
+\subsubsection{Joining a random game}
+The contract keeps a list of games that can be joined. When attempting to join
+a random game, a starting index is computed pseudo-randomly. In particular, the
+starting index is taken as following:
+\begin{itemize}
+	\item First, the keccak256 hash with the hash of the previous block, the address of
+	      the caller, and a nonce (which is incremented after each use). Together, this
+	      should guarantee that a different hash is always computed.
+	\item Then, a modulo operation with the length of list of games is used.
+\end{itemize}
+This starting index is then used to traverse the list of joinable games.
+Iterating on the list is needed to search for a game that was not created by
+the caller. Therefore, in most cases, the loop body will only be executed once.
+
+\subsubsection{Board size, encoding and fleet}
+The chosen board size is a $8 \times 8$ board.
+
+The board is encoded using a Merkle tree, following the project requirements.
+Each cell may contain a ship (encoded as boolean \mintinline{solidity}{true})
+or not (\mintinline{solidity}{false}). The content of the cell is hashed
+together with a cryptographically strong random salt. Additionally, also the
+index in the linearized matrix is hashed. Only the root of the Merkle tree is
+sent to the contract, which uses it to validate proofs sent by the client.
+
+This encoding, however, does not allow to easily check some conditions on the
+fleet. In particular, given a board and a set of rules about the fleet
+composition, the procedure to determine if the board respects the rules is
+quite complex, as it requires checking that there exist an interpretation of
+the board that satisfies the required properties. The choice in this case was
+to relax board checking: as no requirements were set regarding the fleet
+composition, the decision was to allow any fleet composition, with the only
+requirement that every ship must be withing the board's boundaries, and that
+the total number of ``ship cells'' is the fixed one ($10$ on a $8\times 8$
+board).
+
+A more efficient encoding using triplets of $\langle coords, size,
+	direction\rangle$ could be used to simplify board checking. Given a set of
+triplets, it is trivial to verify that they respect a certain fleet
+composition, as well as other properties (e.g. no collisions between ships).
+However, it is not as trivial to come up with a scheme that allows to verify
+that the triplets actually belong to a board.
+
+\subsection{Front-end}
+The front-end has been implemented using \href{https://react.dev/}{\color{blue}
+	React} and \href{https://reactrouter.com/en/main}{\color{blue} React-router}.
+These two libraries allow to quickly design and implement a front-end offering
+a good user experience.
+
+The use of React-router also greatly simplifies the code: loaders and actions
+are used to load data from the contract, whereas actions allow sending
+transactions. Overall, this allows to keep data loading and mutation separated
+from data visualization and user interaction.
+
+An important choice during implementation regards the generation of salts for
+the Merkle tree. As salts need to be random in order to prevent attacks (more
+on this in \cref{sec:potential_vulnerabilities}), cryptographically secure
+random numbers need to be used. Fortunately, the
+\href{https://developer.mozilla.org/en-US/docs/Web/API/Crypto}{\color{blue}Crypto
+	API} of modern browsers allow generating cryptographically strong random
+numbers easily. For these reasons, the front-end implementation uses this API
+in order to generate secure salts which allow preventing many attacks.
+
+To allow seamless reloading of the battleship game webpage, both the board and
+the Merkle tree of the player are saved in the indexedDB of the browser (using
+\href{https://github.com/localForage/localForage}{\color{blue}localForage}).
+Possible attacks exploiting XSS vulnerabilities to steal the board
+configuration do not work as React is safe against XSS by
+default\footnote{Although this is not true in every case, the potential attack
+	vectors for XSS vulnerabilities are very few and easy to avoid in React.}.
+
+For the creation of Merkle trees and related Merkle proofs, the library
+\href{https://github.com/OpenZeppelin/merkle-tree}{\color{blue}@openzeppelin/merkle-tree}
+was used.
+
