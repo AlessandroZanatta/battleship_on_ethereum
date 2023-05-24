@@ -1,7 +1,6 @@
 const Battleship = artifacts.require("Battleship");
 const BattleshipGame = artifacts.require("BattleshipGame");
 const truffleAssert = require("truffle-assertions");
-const utils = require("./utils");
 const StandardMerkleTree =
   require("@openzeppelin/merkle-tree").StandardMerkleTree;
 

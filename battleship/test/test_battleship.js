@@ -1,6 +1,5 @@
 const Battleship = artifacts.require("Battleship");
 const truffleAssert = require("truffle-assertions");
-const utils = require("./utils");
 
 contract("Test battleship contract - Create", (accounts) => {
   before(async () => {
