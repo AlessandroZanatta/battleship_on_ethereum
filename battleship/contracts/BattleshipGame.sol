@@ -284,18 +284,16 @@ contract BattleshipGame {
         timeout = block.number + 5;
     }
 
-    // It is also possible that the AFK player is the only player that can take action
+    // It is likely that the AFK player is the only player that can take action
     // In this case, it would be impossible to claim the funds, thus the need of this function
     function verifyOpponentAFK() external onlyPlayer {
-        require(AFKPlayer != address(0));
+        require(AFKPlayer != address(0) && block.number >= timeout);
 
-        if (block.number >= timeout) {
-            // No action from the AFK player was taken before the timeout
-            // The opponent wins by default
-            address opponent = AFKPlayer == playerOne ? playerTwo : playerOne;
-            emit WinnerVerified(opponent);
-            winner = opponent;
-        }
+        // No action from the AFK player was taken before the timeout
+        // The opponent wins by default
+        address opponent = AFKPlayer == playerOne ? playerTwo : playerOne;
+        emit WinnerVerified(opponent);
+        winner = opponent;
     }
 
     function betFunds() external payable onlyPlayer phaseWaitingFunds checkAFK {
@@ -429,8 +427,8 @@ contract BattleshipGame {
                 ) || shotsTakenMap[opponent][_indexes[i]]
             ) {
                 // Player submitted a fake proof or an index that was already checked
-                // This could happen as a client implementation error, but in most cases
-                // this is due to a cheating attempt
+                // If the client implementation is correct, this means that the player
+                // attempted cheating
                 emit WinnerVerified(opponent);
                 winner = opponent;
                 return;
@@ -464,8 +462,10 @@ contract BattleshipGame {
     }
 
     function withdraw() external phaseWinnerVerified onlyWinner {
-        payable(msg.sender).transfer(address(this).balance);
+        // Re-entrancy should not be an issue as this contract will have zero balance
+        // but we still make sure to update the currentPhase before a transfer
         currentPhase = Phase.End;
+        payable(msg.sender).transfer(address(this).balance);
     }
 
     //
@@ -477,13 +477,12 @@ contract BattleshipGame {
     function _attack(uint8 _index) internal {
         // Check the selected cell is valid for the current board
         //  - not already shot
-        //  - in a valid range (i.e. inside the boards boundaries, which depend
-        //    on the boardSize)
+        //  - in a valid range (i.e. inside the boards boundaries)
         require(
             shotsTakenMap[msg.sender][_index] == false,
             "You have already shot that cell"
         );
-        require((_index < CELLS_BOARD), "Cell is invalid");
+        require(_index < CELLS_BOARD, "Cell is invalid");
 
         // Set the shot as taken
         shotsTakenMap[msg.sender][_index] = true;
