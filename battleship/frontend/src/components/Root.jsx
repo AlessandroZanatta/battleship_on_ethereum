@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import useEth from "../contexts/EthContext/useEth";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import halfmoon from "halfmoon";
@@ -14,7 +14,7 @@ export const Root = () => {
   } = useEth();
 
   useEffect(() => {
-    // Required by Halfmoon CSS framework
+    // Required by Halfmoon framework
     halfmoon.onDOMContentLoaded();
 
     if (location.pathname === "/" || location.pathname === "") {

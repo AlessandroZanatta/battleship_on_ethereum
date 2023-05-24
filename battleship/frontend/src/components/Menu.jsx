@@ -4,7 +4,6 @@ import { Form } from "react-router-dom";
 import { useEth } from "../contexts/EthContext";
 import {
   battleshipContractFromAddress,
-  BoardSize,
   createToast,
   getWeb3Instance,
 } from "../utils";

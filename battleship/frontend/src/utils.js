@@ -14,6 +14,7 @@ export const Phase = {
   Attack: "4",
   Winner: "5",
   WinnerVerified: "6",
+  End: "7",
 };
 
 export const phaseToString = (phase) => {
@@ -31,6 +32,8 @@ export const phaseToString = (phase) => {
     case Phase.Winner:
       return "Winner found";
     case Phase.WinnerVerified:
+      return "Winner verified";
+    case Phase.End:
       return "Winner verified";
     default:
       throw new Error("Invalid phase");

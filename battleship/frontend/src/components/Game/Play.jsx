@@ -11,12 +11,10 @@ import { useEth } from "../../contexts/EthContext";
 import {
   battleshipGameContractFromAddress,
   BOARD_SIDE_SIZE,
-  boardSizeToInt,
   createToast,
   getWeb3Instance,
   loadBoard,
   loadBoardTree,
-  Phase,
   ShotType,
 } from "../../utils";
 
@@ -50,7 +48,7 @@ export const action = async ({ request }) => {
       case "checkAndAttack":
         const tree = StandardMerkleTree.load(await loadBoardTree());
         const checkPos = parseInt(form.get("checkPos"));
-        const value = tree.values.find((v) => v.value[2] == checkPos).value;
+        const value = tree.values.find((v) => v.value[2] === checkPos).value;
         const proof = tree.getProof(checkPos);
         await contract.methods
           .checkAndAttack(value[0], value[1], value[2], proof, pos)

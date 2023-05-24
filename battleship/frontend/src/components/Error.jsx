@@ -13,7 +13,7 @@ export const Error = () => {
             style={{ backgroundColor: "#1e2125" }}
           >
             <div className="mb-20">Something went wrong...</div>
-            <Link to="/" replace className="btn btn-primary">
+            <Link to="/" className="btn btn-primary">
               Go back to home
             </Link>
           </div>

@@ -73,7 +73,7 @@ export const Placing = () => {
     </tr>
   ));
 
-  const shipsPlaced = board.filter((e) => e == true).length;
+  const shipsPlaced = board.filter((e) => e === true).length;
   return (
     <div className="row justify-content-between">
       <div className="col-md-3">
@@ -82,7 +82,7 @@ export const Placing = () => {
           Must place a total of {SHIP_CELLS} ships, arranged in any formation.
         </div>
         <div
-          className={`alert mb-7 ${shipsPlaced == SHIP_CELLS ? "alert-success" : "alert-danger"
+          className={`alert mb-7 ${shipsPlaced === SHIP_CELLS ? "alert-success" : "alert-danger"
             }`}
           role="alert"
         >

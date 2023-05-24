@@ -18,7 +18,8 @@ import {
   action as playAction,
   loader as playLoader,
 } from "./components/Game/Play";
-import { Winner } from "./components/Game/Winner";
+import { Winner, action as winnerAction } from "./components/Game/Winner";
+import { Withdraw, action as withdrawAction } from "./components/Game/Withdraw";
 
 const router = createBrowserRouter([
   {
@@ -59,6 +60,12 @@ const router = createBrowserRouter([
           {
             path: "/game/:address/winner",
             element: <Winner />,
+            action: winnerAction,
+          },
+          {
+            path: "/game/:address/withdraw",
+            element: <Withdraw />,
+            action: withdrawAction,
           },
         ],
       },
