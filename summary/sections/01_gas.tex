@@ -1,0 +1,65 @@
+\section{Gas evaluation}
+Gas was evaluated automatically by using Truffle tests. A test file was created
+to get and save to file the gas used by each transaction. \Cref{tab:gas_costs}
+shows the cost of each function. \Cref{tab:full_game_gas_cost} shows the total
+gas used for a $8 \times 8$ board, assuming each player misses all the guesses.
+
+\begin{table}
+	\caption{Cost of single function call}
+	\label{tab:gas_costs}
+	\begin{center}
+		\begin{tabular}[c]{llc}\toprule
+			Contract       & Function name     & Gas used         \\\midrule
+			Battleship     & createGame        & 2167408          \\
+			Battleship     & joinID            & 58001            \\
+			Battleship     & joinRandomGame    & 80882            \\
+			BattleshipGame & proposeBet        & 49455            \\
+			BattleshipGame & acceptBet         & 54824            \\
+			BattleshipGame & betFunds          & 54857            \\
+			BattleshipGame & commitBoard       & 53213            \\
+			BattleshipGame & attack            & 102123           \\
+			BattleshipGame & checkAndAttack    & 108807           \\
+			BattleshipGame & checkWinnerBoard  & 230470 - 1502971 \\
+			BattleshipGame & withdraw          & 35514            \\
+			BattleshipGame & reportOpponentAFK & 76568            \\
+			BattleshipGame & verifyOpponentAFK & 51404            \\\bottomrule
+		\end{tabular}
+	\end{center}
+\end{table}
+
+\begin{table}
+	\caption{Cost of a full game on a $8 \times 8$ board}
+	\label{tab:full_game_gas_cost}
+	\begin{center}
+		\begin{tabular}[c]{llcc}\toprule
+			Contract       & Function name    & Number of calls           & Gas used (total) \\\midrule
+			Battleship     & createGame       & 1                         & 2167408          \\
+			Battleship     & joinID           & 1                         & 58001            \\
+			BattleshipGame & proposeBet       & 1                         & 49455            \\
+			BattleshipGame & acceptBet        & 1                         & 54824            \\
+			BattleshipGame & betFunds         & 2                         & 109714           \\
+			BattleshipGame & commitBoard      & 2                         & 106426           \\
+			BattleshipGame & attack           & 1                         & 102123           \\
+			BattleshipGame & checkAndAttack   & $(8 \cdot 8) \cdot 2 - 1$ & 13818489         \\
+			BattleshipGame & checkWinnerBoard & 1                         & 230470           \\
+			BattleshipGame & withdraw         & 1                         & 35514            \\\hline
+			               &                  &                           & 16732424         \\\bottomrule
+			% 2167408 + 58001 + 49455  +54824 + 54857*2 + 53213*2 + 102123 + 108783*(64*2-1) + 1502971 + 35514
+		\end{tabular}
+	\end{center}
+\end{table}
+
+A few notes about gas costs:
+\begin{itemize}
+	\item The cost of the \mintinline{solidity}{attack} function is very similar to that
+	      of \mintinline{solidity}{checkAndAttack}, although it does considerably less
+	      work. This is likely due to the fact that \mintinline{solidity}{attack}
+	      initializes some storage variables, which is more costly the first time.
+	\item The cost of the \mintinline{solidity}{checkWinnerBoard} varies greatly based on
+	      the number of cells that need to be checked (only cells that have not been shot
+	      yet need to be sent to the contract). Multi Merkle proofs with the
+	      aforementioned library, however, are more efficient, therefore, generally
+	      speaking, a game in which not all shots are missed should cost a little less
+	      than shown in \cref{tab:full_game_gas_cost}.
+\end{itemize}
+

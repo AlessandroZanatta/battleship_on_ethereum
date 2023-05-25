@@ -74,7 +74,7 @@ contract("Compute gas expense for AFK player functions", (accounts) => {
   });
 });
 
-contract("Test BattleshipGame contract", (accounts) => {
+contract("Compute gas expenses for a full 8x8 board game", (accounts) => {
   let game;
   const playerOne = accounts[0];
   const playerTwo = accounts[1];
@@ -158,10 +158,10 @@ contract("Test BattleshipGame contract", (accounts) => {
 
     it("Players shoot each other's boards", async () => {
       // Player who joined the game always starts attacking first
-      let tx = await game.attack(0, { from: playerTwo });
+      let tx = await game.attack(63, { from: playerTwo });
       data.attack = tx.receipt.gasUsed;
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 63; i >= 0; i--) {
         // Generate proof
         value = p1_tree.values.find((v) => v.value[2] == i).value;
         proof = p1_tree.getProof(i);
@@ -170,19 +170,18 @@ contract("Test BattleshipGame contract", (accounts) => {
         tx = await game.checkAndAttack(value[0], value[1], value[2], proof, i, {
           from: playerOne,
         });
-        if (i == 9) break;
+        if (i == 0) break;
         data.checkAndAttack = tx.receipt.gasUsed;
 
         // Generate proof
         value = p2_tree.values.find((v) => v.value[2] == i).value;
         proof = p2_tree.getProof(i);
-        where = 1;
         tx = await game.checkAndAttack(
           value[0],
           value[1],
           value[2],
           proof,
-          i + 1,
+          i - 1,
           {
             from: playerTwo,
           }

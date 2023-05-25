@@ -33,7 +33,8 @@ Iterating on the list is needed to search for a game that was not created by
 the caller. Therefore, in most cases, the loop body will only be executed once.
 
 \subsubsection{Board size, encoding and fleet}
-The chosen board size is a $8 \times 8$ board.
+\label{sec:implementation-contract-board}
+The chosen board size is a fixed $8 \times 8$ board with a total of $10$ ships.
 
 The board is encoded using a Merkle tree, following the project requirements.
 Each cell may contain a ship (encoded as boolean \mintinline{solidity}{true})
@@ -50,8 +51,7 @@ the board that satisfies the required properties. The choice in this case was
 to relax board checking: as no requirements were set regarding the fleet
 composition, the decision was to allow any fleet composition, with the only
 requirement that every ship must be withing the board's boundaries, and that
-the total number of ``ship cells'' is the fixed one ($10$ on a $8\times 8$
-board).
+the total number of ``ship cells'' is the fixed one.
 
 A more efficient encoding using triplets of $\langle coords, size,
 	direction\rangle$ could be used to simplify board checking. Given a set of
@@ -60,7 +60,33 @@ composition, as well as other properties (e.g. no collisions between ships).
 However, it is not as trivial to come up with a scheme that allows to verify
 that the triplets actually belong to a board.
 
+\subsubsection{Leaver reporting and checking}
+\label{sec:implementation-contract-leaver-reporting}
+Implementing correctly leaver (AFK) reporting and checking proved to be more
+complex than what it may seem at first glance.
+
+When implementing this feature, we need to make sure that this feature cannot
+be abused to win games. For instance, it may happen that a player is accused on
+being AFK, but is also unable to take any action (defaulting to a loss). Note
+that giving players the ability to declare they are not AFK is also very risky
+(if not wrong) as it may be abused to lock the funds of the opponent until the
+opponent goes AFK (e.g. goes to sleep).
+
+The solution implemented is the following: check that the reported player can
+do an action. If not, disallow reporting it for AFK. Additionally, reporting
+for AFK is allowed only during some phases. This approach, as error-prone as it
+may be, is likely the best one if implemented correctly.
+
+\subsubsection{Verifying Merkle proofs}
+For Merkle proofs verification, the
+\href{https://docs.openzeppelin.com/contracts/4.x/api/utils\#MerkleProof}{\color{blue}OpenZeppelin
+	MerkleProof} library was used. In addition to simple Merkle proofs, the library
+allows for multi proof verification, which is done by re-building partially the
+tree up to the root efficiently. Using multi proofs allowed saving up about
+$\frac{1}{5}$ of the gas used for board checking.
+
 \subsection{Front-end}
+\label{sec:implementation-front-end}
 The front-end has been implemented using \href{https://react.dev/}{\color{blue}
 	React} and \href{https://reactrouter.com/en/main}{\color{blue} React-router}.
 These two libraries allow to quickly design and implement a front-end offering

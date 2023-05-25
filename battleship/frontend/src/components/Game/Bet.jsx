@@ -66,7 +66,7 @@ export const Bet = () => {
     <>
       <div className="alert mb-10" role="alert">
         <h4 className="alert-heading">
-          Bet proposed by opponent: {opponentBet}
+          Bet proposed by opponent: {opponentBet} wei
         </h4>
         <Form method="post">
           <input type="hidden" name="address" value={game._address} />
@@ -76,7 +76,7 @@ export const Bet = () => {
         </Form>
       </div>
       <div className="alert" role="alert">
-        <h4 className="alert-heading">Your bet: {yourBet}</h4>
+        <h4 className="alert-heading">Your bet: {yourBet} wei</h4>
         <Form method="post" className="form-inline">
           <input type="hidden" name="address" value={game._address} />
           <input type="hidden" name="intent" value="proposeBet" />
@@ -87,7 +87,7 @@ export const Bet = () => {
             name="betAmount"
           />
           <button type="submit" className="btn btn-primary">
-            Propose new bet
+            Propose new bet (in wei)
           </button>
         </Form>
       </div>

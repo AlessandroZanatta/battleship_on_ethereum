@@ -23,8 +23,8 @@ contract BattleshipGame {
     // This is a simplifying assumption, as checking for the correctness of a precise fleet composition
     // is very inefficient computationally-wise (fastly growing tree).
     // A possible solution may be to represent ships as triples (position, direction, size),
-    // but this would complicate merkle proofs greatly.
-    uint8 public constant SHIP_CELLS_BOARD = 10;
+    // but this would also complicate Merkle proofs.
+    uint8 public constant SHIP_CELLS_BOARD = 10; // CHANGE ME for faster games
 
     // Possible outcomes for a shot: not shot, shot taken (awaiting confirmation),
     // hit or miss. None is also the Solidity default value zero (no need for initialization).
@@ -155,11 +155,8 @@ contract BattleshipGame {
             } else if (block.number >= timeout) {
                 // No action from the AFK player was taken before the timeout
                 // The opponent wins by default
-                address opponent = AFKPlayer == playerOne
-                    ? playerTwo
-                    : playerOne;
-                emit WinnerVerified(opponent);
-                winner = opponent;
+                _declareWinner(AFKPlayer == playerOne ? playerTwo : playerOne);
+                return;
             }
         }
         _;
@@ -216,6 +213,7 @@ contract BattleshipGame {
     function registerPlayerTwo(
         address _playerTwo
     ) external onlyOwner phaseWaitingForPlayer {
+        require(playerTwo == address(0));
         // Set second player and move to next phase
         playerTwo = _playerTwo;
         currentPhase = Phase.BetAgreement;
@@ -412,36 +410,35 @@ contract BattleshipGame {
         address opponent = msg.sender == playerOne ? playerTwo : playerOne;
         uint8 ships = 0;
 
-        if (_cells.length > 0) {
-            // The winner is required to send the proofs for the cells that he hasn't given a proof yet
-            // First, we verify that the whole board is verified to belong to the Merkle tree
-            // Using a multiproof allows to save about 300k gas
-            if (
-                !_checkMultiProof(
-                    _proof,
-                    _proofFlags,
-                    _cells,
-                    _salts,
-                    _indexes,
-                    playerBoardMerkleRoot[msg.sender]
-                )
-            ) {
+        // The winner is required to send the proofs for the cells that he hasn't given a proof yet
+        // First, we verify that the whole board is verified to belong to the Merkle tree
+        // Using a multiproof allows to save about 300k gas
+        if (
+            !_checkMultiProof(
+                _proof,
+                _proofFlags,
+                _cells,
+                _salts,
+                _indexes,
+                playerBoardMerkleRoot[msg.sender]
+            )
+        ) {
+            _declareWinner(opponent);
+            return;
+        }
+
+        // We also check that no indexes are re-used. To do so, we re-use shotsTakenMap.
+        for (uint i = 0; i < _cells.length; i++) {
+            // Check that the index is valid
+            if (_indexes[i] >= CELLS_BOARD) {
                 _declareWinner(opponent);
                 return;
             }
 
-            // We also check that no indexes are re-used. To do so, we re-use shotsTakenMap.
-            for (uint i = 0; i < _cells.length; i++) {
-                // Check that the index is valid
-                if (_indexes[i] >= CELLS_BOARD) {
-                    _declareWinner(opponent);
-                    return;
-                }
-
-                shotsTakenMap[opponent][_indexes[i]] = true;
-                if (_cells[i]) {
-                    ships++;
-                }
+            assert(!shotsTakenMap[opponent][_indexes[i]]);
+            shotsTakenMap[opponent][_indexes[i]] = true;
+            if (_cells[i]) {
+                ships++;
             }
         }
 

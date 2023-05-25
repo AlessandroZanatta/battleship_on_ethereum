@@ -4,6 +4,7 @@ import {
   createToast,
   getWeb3Instance,
 } from "../../utils";
+import { useEth } from "../../contexts/EthContext";
 
 export const action = async ({ request }) => {
   const form = await request.formData();
@@ -20,17 +21,27 @@ export const action = async ({ request }) => {
 };
 
 export const Withdraw = () => {
-  const { game } = useRouteLoaderData("game");
+  const {
+    game,
+    data: { winner },
+  } = useRouteLoaderData("game");
+  const {
+    state: { accounts },
+  } = useEth();
   const actionData = useActionData();
 
-  return actionData?.msg ? (
-    actionData?.msg
+  return winner === accounts[0] ? (
+    actionData?.msg ? (
+      actionData?.msg
+    ) : (
+      <Form method="post">
+        <input type="hidden" name="address" value={game._address} />
+        <button type="submit" className="btn btn-primary">
+          Withdraw bet
+        </button>
+      </Form>
+    )
   ) : (
-    <Form method="post">
-      <input type="hidden" name="address" value={game._address} />
-      <button type="submit" className="btn btn-primary">
-        Withdraw bet
-      </button>
-    </Form>
+    "You have lost."
   );
 };

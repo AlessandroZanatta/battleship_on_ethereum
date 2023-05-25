@@ -42,10 +42,10 @@ export const phaseToString = (phase) => {
 
 export const isReportable = (phase) => {
   return (
-    phase != Phase.WaitingForPlayer &&
-    phase != Phase.BetAgreement &&
-    phase != Phase.WinnerVerified &&
-    phase != Phase.End
+    phase !== Phase.WaitingForPlayer &&
+    phase !== Phase.BetAgreement &&
+    phase !== Phase.WinnerVerified &&
+    phase !== Phase.End
   );
 };
 

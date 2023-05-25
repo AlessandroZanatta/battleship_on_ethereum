@@ -1,7 +1,75 @@
 \section{Potential vulnerabilities}
 \label{sec:potential_vulnerabilities}
 
-About weak salts attacks
+\subsection{Contract-side attacks}
+\subsubsection{Re-entrancy attacks}
+Withdrawal is implemented such that re-entrancy attacks do not apply. In
+particular, we can benefit from having separate contracts for different games.
+As each game has its own contract, we do not need to save the amount of Ether
+wagered by players in any way. Instead, when withdrawing the wagered funds, the
+full balance of the game contract is transferred over to the winner. Moreover,
+the phase of the game is updated before the \mintinline{solidity}{transfer}
+call, ensuring that any re-entrance attempt is thwarted.
 
-About stealing board from indexed db
+\subsubsection{AFK abusing}
+As discussed in \cref{sec:implementation-contract-leaver-reporting}, leaver
+reporting and checking can be easily implemented incorrectly. While the idea
+that drove the current implementation should be correct, the implementation may
+potentially be flawed. Such flaws may be hard to spot, and their exploitation
+would have a very high impact, that is, basically allowing to win every game.
+
+For this reason, throughout testing would be needed to make sure that AFK
+reporting and AFK checking is correct.
+
+\subsubsection{Denial of Service}
+Denial of service attacks are thwarted by the possibility to report the
+opponent player for leaving. However, reporting a player still has a gas cost
+(even though it is low), and the malicious player can still delay the
+continuation of the game by four blocks per action (about $40 - 80$ seconds per
+move).
+
+\subsubsection{Cheating detection}
+Cheating detection, with the scheme described in
+\cref{sec:implementation-contract-board}, is possible only when the winner
+submits its board for verification. Moreover, it is also possible that the
+opponent has also cheated. The current implementation assumes the loyalty of
+the loser, in the case in which the winner cheated. A different implementation
+could be used to:
+\begin{itemize}
+	\item Detect cheating in ``real-time'', that is, when the cell is checked (not
+	      possible using Merkle proofs, as we can only verify belonging to a certain
+	      Merkle root hash)
+	\item Decide the action to take in the event that both players have cheated
+\end{itemize}
+
+\subsection{Client-side attacks}
+\subsubsection{Weak salts}
+The developed client uses cryptographically secure random salts of 256 bits.
+However, anybody could write an alternative client. If the client (maliciously)
+uses weak salts when creating the Merkle tree, it could lead to some attacks.
+
+In particular, if using weak salts or no salts, it could be theoretically
+possible to compute the opponent's board. As the board's size if $8 \times 8$,
+a brute force of $64$ bits would be required, which is not considered safe for
+modern standards ($80$ bits is usually considered as the minimum number of bits
+required to prevent brute force attacks). The attack would follow these steps
+(assuming no salt or known fixed salt):
+\begin{enumerate}
+	\item Get from the blockchain the Merkle root of the opponent
+	\item For each configuration of $64$ bits, $10$ of which at one and $64-10$ at zero:
+	      \begin{enumerate}
+		      \item Compute the Merkle tree with the guessed bit configuration
+		      \item Compare the root of the obtained Merkle tree with the opponent's one
+		      \item If it matches, we have found the opponent's board
+	      \end{enumerate}
+\end{enumerate}
+Notice that, if using no salt or a fixed one, precomputed rainbow tables could
+also be used to speed up Merkle tree construction.
+
+\subsubsection{Cross-site scripting}
+As mentioned in \cref{sec:implementation-front-end}, XSS vulnerabilities are
+mostly mitigated by the use of React. While XSS is possible in React, most
+attack vectors are mitigated. Unless writing user-controlled data in specific
+places that are well-known for being injectable (for example
+\mintinline{HTML}{<a href="javascript:alert(1)"></a>}), React is safe.
 

@@ -1,0 +1,66 @@
+\section{User manual}
+\subsection{How to run}
+First, either Ganache or \mintinline{bash}{truffle develop} is required. The
+\mintinline{bash}{start_ganache.sh} script contains the private keys used
+during development by Ganache. This allows to avoid having to import new keys
+at every Ganache restart. Feel free to use the script, or to use your own keys.
+
+After starting a local blockchain instance, run \mintinline{bash}{npm ci} and
+\mintinline{bash}{truffle migrate} to download OpenZeppelin dependencies and
+deploy contracts.
+
+Finally, run \mintinline{bash}{npm ci} and \mintinline{bash}{npm start} in the
+\mintinline{bash}{frontend} folder. This will download dependencies for the
+frontend and start the React development server.
+
+\subsection{Demo}
+Tests that simulate a game are available inside
+\mintinline{bash}{test/test_battleshipGame.js}. Tests were development mainly
+to validate that changes to the contract implementation were not breaking
+contract interaction.
+
+To manually play battleship, two browsers are needed (Metamask inside an
+incognito browser window should also work). The following assumes that keys and
+network are already setup for Ganache or \mintinline{bash}{truffle develop}.
+
+First, navigate on both browsers to
+\href{http://localhost:8080}{\color{blue}http://localhost:8080}. The user
+interface should provide enough guidance for playing a battleship game. A
+couple of notes:
+\begin{itemize}
+	\item By default, 10 ships must be placed, making it time-consuming to play a full
+	      game. It is possible to change the number of required ships by changing
+	      \mintinline{solidity}{SHIP_CELLS_BOARD} in
+	      \mintinline{bash}{BattleshipGame.sol:27}. Note that, with a value different
+	      from 10, tests will fail, and UI will not update the ship requirements shown as
+	      an aid to the player in the \mintinline{bash}{/game/:address/placing} page.
+	\item Events emitted by the contract drive the UI updates. Events delivery is
+	      sometimes delayed by several seconds. Be patient, the UI will eventually update
+	      when the event is received.
+	\item It may rarely occur that data fetching from the contract happens too early. In
+	      the case something odd happens, reloading the page will most likely fix it.
+\end{itemize}
+
+Steps for playing (assuming two different accounts are being used on two
+different browsers):
+\begin{enumerate}
+	\item Create a game
+	\item Either join a random game, or join it using the game ID shown in the first
+	      browser
+	\item Place a bet with the first user
+	\item Accept it with the second user
+	\item Place the required ships (10, unless \mintinline{bash}{BattleshipGame.sol:27}
+	      has been modified) on both board
+	\item Commit the board
+	\item Take turns shooting at the opponent's board by clicking on the
+	      \mintinline{bash}{shoot} HTML button
+	\item When one of the player's reaches the number of sunk ships set, the winner will
+	      be declared
+	\item Then winner has to send its board for verification by clicking on the
+	      \mintinline{bat}{Send board for verification} button
+	\item If placement was legitimate, the winner will be able to click a
+	      \mintinline{bat}{withdraw} button to transfer the wager to its account.
+	      Otherwise, the opponent will be declared winner and redirected to the
+	      withdrawal page.
+\end{enumerate}
+

@@ -14,7 +14,6 @@ import {
   createToast,
   getWeb3Instance,
   phaseToString,
-  Phase,
   isReportable,
 } from "../utils";
 

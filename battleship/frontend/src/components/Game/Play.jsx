@@ -87,6 +87,13 @@ export const Play = () => {
   const range = [...Array(BOARD_SIDE_SIZE).keys()];
 
   useEffect(() => {
+    // Sometimes reloading happens too early and causes playerTurn
+    // to still be all zeros. In those rare cases, reload the page
+    if (playerTurn === "0x0000000000000000000000000000000000000000")
+      revalidator.revalidate();
+  }, [playerTurn]);
+
+  useEffect(() => {
     (async () => {
       game.events
         .ShotTaken({ filter: { player: opponent } })

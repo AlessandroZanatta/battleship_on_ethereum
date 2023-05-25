@@ -34,7 +34,6 @@ export const action = async ({ request }) => {
         return null;
     }
   } catch (err) {
-    console.log({ err });
     createToast("Error", err.message, "alert-danger");
   }
   return null;
@@ -54,7 +53,7 @@ export const Menu = () => {
         <Form method="post">
           <input type="hidden" name="address" value={contract._address} />
           <input type="hidden" name="intent" value="create" />
-          <button type="submit" className="btn btn-primary btn-block mb-5">
+          <button type="submit" className="btn btn-success btn-block mb-5">
             Create new game
           </button>
         </Form>

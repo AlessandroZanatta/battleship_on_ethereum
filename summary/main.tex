@@ -12,9 +12,10 @@
 \usepackage{fancyhdr}
 \usepackage{xcolor}
 \usepackage{minted}
+\usepackage{booktabs}
 
 %% No spaces between items in a list
-% \setlist{noitemsep}
+\setlist{noitemsep}
 
 %% Table of contents formatting
 \dottedcontents{section}[25pt]{\addvspace{3pt}}{2.3em}{9.5pt}
@@ -44,8 +45,10 @@
 
 %% Add sections here by including them from the sections directory
 \pagenumbering{arabic}
-\input{./sections/00_implementation_choices}\clearpage
-\input{./sections/02_vulnerabilities}\clearpage
+\input{./sections/00_implementation_choices}
+\input{./sections/01_gas}
+\input{./sections/02_vulnerabilities}
+\input{./sections/03_manual}
 
 \end{document}
 

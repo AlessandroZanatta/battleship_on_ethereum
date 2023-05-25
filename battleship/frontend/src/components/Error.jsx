@@ -12,7 +12,7 @@ export const Error = () => {
             className="card text-center"
             style={{ backgroundColor: "#1e2125" }}
           >
-            <div className="mb-20">Something went wrong...</div>
+            <div className="mb-20">{error.error.toString()}</div>
             <Link to="/" className="btn btn-primary">
               Go back to home
             </Link>
