@@ -21,56 +21,60 @@ contract is costly in terms of the required Gas.
 \subsubsection{Joining a random game}
 The contract keeps a list of games that can be joined. When attempting to join
 a random game, a starting index is computed pseudo-randomly. In particular, the
-starting index is taken as following:
+starting index is calculated as following:
 \begin{itemize}
 	\item First, the keccak256 hash with the hash of the previous block, the address of
-	      the caller, and a nonce (which is incremented after each use). Together, this
-	      should guarantee that a different hash is always computed.
-	\item Then, a modulo operation with the length of list of games is used.
+	      the caller, and a nonce (which is incremented after each use) is computed. This
+	      should guarantee that a different hash is always computed, even for
+	      transactions of the same block sent by the same address.
+	\item Then, a modulo operation with the length of the list of games is used.
 \end{itemize}
 This starting index is then used to traverse the list of joinable games.
 Iterating on the list is needed to search for a game that was not created by
-the caller. Therefore, in most cases, the loop body will only be executed once.
+the caller. In most cases, however, the loop body will only be executed once.
 
 \subsubsection{Board size, encoding and fleet}
 \label{sec:implementation-contract-board}
 The chosen board size is a fixed $8 \times 8$ board with a total of $10$ ships.
 
-The board is encoded using a Merkle tree, following the project requirements.
-Each cell may contain a ship (encoded as boolean \mintinline{solidity}{true})
-or not (\mintinline{solidity}{false}). The content of the cell is hashed
-together with a cryptographically strong random salt. Additionally, also the
-index in the linearized matrix is hashed. Only the root of the Merkle tree is
-sent to the contract, which uses it to validate proofs sent by the client.
+Following the project requirements, a Merkle tree for proving belonging is
+computed starting from the board's configuration. Each cell may contain a ship
+(encoded as boolean \mintinline{solidity}{true}) or not
+(\mintinline{solidity}{false}). The content of the cell is hashed together with
+a cryptographically strong random salt. Additionally, also the index in the
+linearized matrix is hashed. Only the root of the Merkle tree is sent to the
+contract, which uses it to validate proofs sent by the client.
 
 This encoding, however, does not allow to easily check some conditions on the
 fleet. In particular, given a board and a set of rules about the fleet
 composition, the procedure to determine if the board respects the rules is
 quite complex, as it requires checking that there exist an interpretation of
-the board that satisfies the required properties. The choice in this case was
-to relax board checking: as no requirements were set regarding the fleet
-composition, the decision was to allow any fleet composition, with the only
-requirement that every ship must be withing the board's boundaries, and that
-the total number of ``ship cells'' is the fixed one.
+the board that satisfies the required properties (a fast-growing tree of
+recursive calls is likely required). The choice in this case was to relax board
+checking: as no requirements were set regarding the fleet composition, the
+decision was to allow any fleet composition, with the only requirement that
+every ship must be withing the board's boundaries, and that the total number of
+``ship cells'' is the fixed one. Each player can basically choose its own
+strategy.
 
 A more efficient encoding using triplets of $\langle coords, size,
 	direction\rangle$ could be used to simplify board checking. Given a set of
 triplets, it is trivial to verify that they respect a certain fleet
 composition, as well as other properties (e.g. no collisions between ships).
 However, it is not as trivial to come up with a scheme that allows to verify
-that the triplets actually belong to a board.
+whether a shot hits or misses the opponent's ship.
 
 \subsubsection{Leaver reporting and checking}
 \label{sec:implementation-contract-leaver-reporting}
 Implementing correctly leaver (AFK) reporting and checking proved to be more
 complex than what it may seem at first glance.
 
-When implementing this feature, we need to make sure that this feature cannot
-be abused to win games. For instance, it may happen that a player is accused on
-being AFK, but is also unable to take any action (defaulting to a loss). Note
-that giving players the ability to declare they are not AFK is also very risky
-(if not wrong) as it may be abused to lock the funds of the opponent until the
-opponent goes AFK (e.g. goes to sleep).
+When implementing this feature, it is important to make sure that this feature
+cannot be abused to win games. For instance, it may happen that a player is
+accused on being AFK, but is also unable to take any action (defaulting to a
+loss). Note that giving players the ability to declare they are not AFK is also
+very risky (if not wrong) as it may be abused to lock the funds of the opponent
+until the opponent goes AFK (e.g. goes to sleep).
 
 The solution implemented is the following: check that the reported player can
 do an action. If not, disallow reporting it for AFK. Additionally, reporting
@@ -102,9 +106,9 @@ the Merkle tree. As salts need to be random in order to prevent attacks (more
 on this in \cref{sec:potential_vulnerabilities}), cryptographically secure
 random numbers need to be used. Fortunately, the
 \href{https://developer.mozilla.org/en-US/docs/Web/API/Crypto}{\color{blue}Crypto
-	API} of modern browsers allow generating cryptographically strong random
-numbers easily. For these reasons, the front-end implementation uses this API
-in order to generate secure salts which allow preventing many attacks.
+	API} of modern browsers allows generating cryptographically strong random
+numbers easily. The front-end implementation uses this API in order to generate
+secure salts which allow preventing some attacks.
 
 To allow seamless reloading of the battleship game webpage, both the board and
 the Merkle tree of the player are saved in the indexedDB of the browser (using

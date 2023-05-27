@@ -48,23 +48,24 @@ The developed client uses cryptographically secure random salts of 256 bits.
 However, anybody could write an alternative client. If the client (maliciously)
 uses weak salts when creating the Merkle tree, it could lead to some attacks.
 
-In particular, if using weak salts or no salts, it could be theoretically
-possible to compute the opponent's board. As the board's size if $8 \times 8$,
+In particular, if using fixed salt or no salt at all, it could be theoretically
+possible to compute the opponent's board. As the board's size is $8 \times 8$,
 a brute force of $64$ bits would be required, which is not considered safe for
 modern standards ($80$ bits is usually considered as the minimum number of bits
-required to prevent brute force attacks). The attack would follow these steps
-(assuming no salt or known fixed salt):
+required to prevent brute force attacks). Moreover, the total number of
+possible different configurations is also much lower than $2^{64}$. The attack
+would follow these steps (assuming no salt or known fixed salt):
 \begin{enumerate}
 	\item Get from the blockchain the Merkle root of the opponent
 	\item For each configuration of $64$ bits, $10$ of which at one and $64-10$ at zero:
 	      \begin{enumerate}
 		      \item Compute the Merkle tree with the guessed bit configuration
 		      \item Compare the root of the obtained Merkle tree with the opponent's one
-		      \item If it matches, we have found the opponent's board
+		      \item If it matches, we have found the opponent's board configuration
 	      \end{enumerate}
 \end{enumerate}
-Notice that, if using no salt or a fixed one, precomputed rainbow tables could
-also be used to speed up Merkle tree construction.
+Notice that, if using no salt, a fixed one, or very weak ones, precomputed
+rainbow tables could be used to speed up Merkle tree construction noticeably.
 
 \subsubsection{Cross-site scripting}
 As mentioned in \cref{sec:implementation-front-end}, XSS vulnerabilities are
