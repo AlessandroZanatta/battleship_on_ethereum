@@ -62,7 +62,8 @@ A more efficient encoding using triplets of $\langle coords, size,
 triplets, it is trivial to verify that they respect a certain fleet
 composition, as well as other properties (e.g. no collisions between ships).
 However, it is not as trivial to come up with a scheme that allows to verify
-whether a shot hits or misses the opponent's ship.
+whether a shot hits or misses the opponent's ship without spoiling other
+fundamental properties, such as hiding.
 
 \subsubsection{Leaver reporting and checking}
 \label{sec:implementation-contract-leaver-reporting}
@@ -104,7 +105,7 @@ from data visualization and user interaction.
 An important choice during implementation regards the generation of salts for
 the Merkle tree. As salts need to be random in order to prevent attacks (more
 on this in \cref{sec:potential_vulnerabilities}), cryptographically secure
-random numbers need to be used. Fortunately, the
+random numbers must be used. Fortunately, the
 \href{https://developer.mozilla.org/en-US/docs/Web/API/Crypto}{\color{blue}Crypto
 	API} of modern browsers allows generating cryptographically strong random
 numbers easily. The front-end implementation uses this API in order to generate

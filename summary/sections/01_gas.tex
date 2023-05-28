@@ -54,12 +54,12 @@ A few notes about gas costs:
 	\item The cost of the \mintinline{solidity}{attack} function is very similar to that
 	      of \mintinline{solidity}{checkAndAttack}, although it does considerably less
 	      work. This is likely due to the fact that \mintinline{solidity}{attack}
-	      initializes some storage variables, which is more costly the first time.
+	      initializes some storage variables, which is more costly.
 	\item The cost of the \mintinline{solidity}{checkWinnerBoard} varies greatly based on
 	      the number of cells that need to be checked (only cells that have not been shot
 	      yet need to be sent to the contract). Multi Merkle proofs with the
 	      aforementioned library, however, are more efficient, therefore, generally
-	      speaking, a game in which not all shots are missed should cost a little less
-	      than shown in \cref{tab:full_game_gas_cost}.
+	      speaking, a game in which not all shots are missed should cost less than shown
+	      in \cref{tab:full_game_gas_cost}.
 \end{itemize}
 

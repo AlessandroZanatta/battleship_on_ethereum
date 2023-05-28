@@ -70,7 +70,8 @@ rainbow tables could be used to speed up Merkle tree construction noticeably.
 \subsubsection{Cross-site scripting}
 As mentioned in \cref{sec:implementation-front-end}, XSS vulnerabilities are
 mostly mitigated by the use of React. While XSS is possible in React, most
-attack vectors are mitigated. Unless writing user-controlled data in specific
-places that are well-known for being injectable (for example
-\mintinline{HTML}{<a href="javascript:alert(1)"></a>}), React is safe.
+attack vectors are sanitized by React. Unless writing user-controlled data in
+specific places that are well-known for being injectable (for example
+\mintinline{HTML}{<a href="javascript:alert(1)"></a>}, or using React's
+\mintinline{javascript}{dangerouslySetInnerHTML} attribute), React is safe.
 
